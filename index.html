@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Memory Match – Game cho Bé</title>
+  <style>
+    :root{--bg:#fdfdfd;--card:#fff;--txt:#222;--muted:#667185;--brand:#4f46e5;--good:#16a34a;}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,Segoe UI,Roboto,Inter,sans-serif;background:var(--bg);color:var(--txt)}
+    .wrap{max-width:720px;margin:0 auto;padding:16px}
+    h1{font-size:24px;margin:8px 0;text-align:center}
+    .controls{text-align:center;margin-bottom:12px}
+    button{padding:10px 16px;border:none;border-radius:12px;font-size:16px;background:var(--brand);color:#fff;cursor:pointer}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;justify-items:center}
+    .card{width:70px;height:70px;background:#eee;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:32px;cursor:pointer;user-select:none;transition:background .3s}
+    .card.open,.card.matched{background:var(--card);box-shadow:0 4px 10px rgba(0,0,0,.1)}
+    .card.matched{background:var(--good);color:#fff}
+    .hud{text-align:center;margin-top:12px;font-size:18px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🧩 Memory Match</h1>
+    <div class="controls">
+      <button id="startBtn">▶ Bắt đầu</button>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="hud">Điểm: <span id="score">0</span></div>
+  </div>
+
+  <script>
+    const emojis = ['🐶','🐱','🦁','🐸','🐼','🐵','🐷','🐰'];
+    let state={first:null,lock:false,score:0};
+    const grid=document.getElementById('grid');
+    const scoreEl=document.getElementById('score');
+    const startBtn=document.getElementById('startBtn');
+
+    function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]}return arr}
+
+    function start(){
+      grid.innerHTML='';
+      state.score=0;scoreEl.textContent=0;state.first=null;state.lock=false;
+      const cards=shuffle([...emojis,...emojis]);
+      cards.forEach(sym=>{
+        const c=document.createElement('div');
+        c.className='card';
+        c.dataset.sym=sym;
+        c.textContent='?';
+        c.addEventListener('click',()=>flip(c));
+        grid.appendChild(c);
+      });
+    }
+
+    function flip(c){
+      if(state.lock||c.classList.contains('open')||c.classList.contains('matched'))return;
+      c.classList.add('open');
+      c.textContent=c.dataset.sym;
+      if(!state.first){
+        state.first=c;
+      } else {
+        // check match
+        if(state.first.dataset.sym===c.dataset.sym){
+          c.classList.add('matched');
+          state.first.classList.add('matched');
+          state.score+=1;scoreEl.textContent=state.score;
+          state.first=null;
+        } else {
+          state.lock=true;
+          setTimeout(()=>{
+            c.classList.remove('open');c.textContent='?';
+            state.first.classList.remove('open');state.first.textContent='?';
+            state.first=null;state.lock=false;
+          },800);
+        }
+      }
+    }
+
+    startBtn.addEventListener('click',start);
+  </script>
+</body>
+</html>
