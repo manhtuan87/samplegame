@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pop the Color! – Game cho Trẻ Nhỏ</title>
+  <style>
+    :root{
+      --bg:#f6f7fb; --card:#ffffff; --txt:#222; --muted:#667185; --brand:#4f46e5; --ok:#16a34a; --warn:#eab308; --bad:#dc2626;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+    .wrap{max-width:960px;margin:0 auto;padding:20px}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:12px}
+    h1{font-size:clamp(22px,3vw,28px);margin:0;letter-spacing:.2px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    select,button{border:1px solid #dfe3ea;background:#fff;padding:10px 14px;border-radius:12px;font-size:16px}
+    button.primary{background:var(--brand);color:#fff;border-color:transparent}
+    button.ghost{background:#fff}
+    .card{background:var(--card);border:1px solid #e8ecf2;border-radius:16px;box-shadow:0 4px 16px rgba(0,0,0,.04)}
+    .hud{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:12px}
+    .hud-item{background:#fafbff;border:1px solid #eef1f6;border-radius:12px;padding:12px;text-align:center}
+    .hud-item .label{font-size:12px;color:var(--muted)}
+    .hud-item .value{font-weight:700;font-size:20px}
+    .arena{position:relative;height:60vh;min-height:420px;overflow:hidden;border-top:1px solid #eef1f6;border-radius:0 0 16px 16px}
+    .prompt{padding:14px 16px;font-size:18px;border-bottom:1px solid #eef1f6}
+    .balloon{position:absolute;display:flex;align-items:center;justify-content:center;width:96px;height:96px;border-radius:50%;color:#fff;font-weight:700;font-size:18px;user-select:none;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.12);transition:transform .08s ease}
+    .balloon:active{transform:scale(.95)}
+    .pop{animation:pop .25s ease forwards}
+    @keyframes pop{to{transform:scale(1.25);opacity:0;filter:blur(2px)}}
+    .footer{margin-top:14px;color:var(--muted);font-size:13px}
+    .big{font-size:20px}
+    .center{display:flex;justify-content:center;align-items:center;text-align:center}
+    .hidden{display:none !important}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🎈 Pop the Color! <span class="big" id="title-sub">– Trò chơi cho bé</span></h1>
+      <div class="controls">
+        <select id="lang">
+          <option value="vi">Tiếng Việt</option>
+          <option value="ja">日本語</option>
+        </select>
+        <select id="difficulty">
+          <option value="easy">Dễ</option>
+          <option value="normal" selected>Vừa</option>
+          <option value="hard">Khó</option>
+        </select>
+        <button class="ghost" id="howBtn">❓</button>
+        <button class="primary" id="startBtn">▶ Bắt đầu</button>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="prompt" id="prompt">Hãy bấm vào bóng màu <b>Đỏ</b>!</div>
+      <div class="hud">
+        <div class="hud-item"><div class="label" id="lblTarget">Màu cần bấm</div><div class="value" id="targetColor">Đỏ</div></div>
+        <div class="hud-item"><div class="label" id="lblScore">Điểm</div><div class="value" id="score">0</div></div>
+        <div class="hud-item"><div class="label" id="lblTime">Thời gian</div><div class="value" id="time">60</div></div>
+        <div class="hud-item"><div class="label" id="lblLevel">Mức</div><div class="value" id="level">1</div></div>
+      </div>
+      <div class="arena" id="arena"></div>
+    </div>
+
+    <div class="footer">💡 Mẹo: Dành cho trẻ từ 3–6 tuổi. Nút to, màu sắc rõ. Không có quảng cáo, không cần đăng nhập.</div>
+  </div>
+
+  <dialog id="how">
+    <form method="dialog" style="border:none;padding:0">
+      <div class="card" style="padding:18px;max-width:720px">
+        <h3 id="howTitle" style="margin-top:0">Cách chơi</h3>
+        <p id="howBody">Bấm vào bóng có <b>màu giống</b> với màu được yêu cầu. Mỗi lần đúng +1 điểm. Sai không trừ điểm, đừng lo! Hết thời gian sẽ hiện kết quả.</p>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+          <button>OK</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+  const i18n = {
+    vi: {
+      titleSub: '– Trò chơi cho bé',
+      start: '▶ Bắt đầu', how:'❓ Hướng dẫn',
+      labels:{target:'Màu cần bấm', score:'Điểm', time:'Thời gian', level:'Mức'},
+      prompt: c=>`Hãy bấm vào bóng màu <b>${c}</b>!`,
+      howTitle:'Cách chơi',
+      howBody:'Bấm vào bóng có <b>màu giống</b> với màu được yêu cầu. Mỗi lần đúng +1 điểm. Sai không trừ điểm. Hết thời gian sẽ hiện kết quả.',
+      over: (sc)=>`Hết giờ! Điểm của bé: ${sc}`
+    },
+    ja: {
+      titleSub: '– 小さなお子さま向け',
+      start: '▶ スタート', how:'❓ あそびかた',
+      labels:{target:'ねらういろ', score:'スコア', time:'じかん', level:'レベル'},
+      prompt: c=>`<b>${c}</b> のふうせんをタップしよう！`,
+      howTitle:'あそびかた',
+      howBody:'もんだいとおなじ <b>いろ</b> の ふうせんをタップ！ せいかいで +1。まちがえても へらないよ。じかんが くると けっかが でるよ。',
+      over: (sc)=>`じかんおしまい！ スコア：${sc}`
+    }
+  };
+
+  const COLORS = [
+    {key:'Red', vi:'Đỏ', ja:'あか', hex:'#ef4444'},
+    {key:'Blue', vi:'Xanh dương', ja:'あお', hex:'#3b82f6'},
+    {key:'Green', vi:'Xanh lá', ja:'みどり', hex:'#22c55e'},
+    {key:'Yellow', vi:'Vàng', ja:'きいろ', hex:'#eab308'},
+    {key:'Purple', vi:'Tím', ja:'むらさき', hex:'#a855f7'},
+    {key:'Orange', vi:'Cam', ja:'オレンジ', hex:'#f97316'},
+  ];
+
+  const arena = document.getElementById('arena');
+  const scoreEl = document.getElementById('score');
+  const timeEl = document.getElementById('time');
+  const levelEl = document.getElementById('level');
+  const targetEl = document.getElementById('targetColor');
+  const promptEl = document.getElementById('prompt');
+  const startBtn = document.getElementById('startBtn');
+  const howBtn = document.getElementById('howBtn');
+  const howDlg = document.getElementById('how');
+  const langSel = document.getElementById('lang');
+  const diffSel = document.getElementById('difficulty');
+  const titleSub = document.getElementById('title-sub');
+  const lbls = ['lblTarget','lblScore','lblTime','lblLevel'].map(id=>document.getElementById(id));
+
+  let state = {running:false, score:0, time:60, level:1, targetIdx:0, timers:[], lang:'vi'};
+
+  function t(){return i18n[state.lang]}
+  function colorName(c){return c[state.lang]}
+
+  function setLang(l){
+    state.lang = l;
+    titleSub.textContent = i18n[l].titleSub;
+    startBtn.textContent = i18n[l].start;
+    howBtn.textContent = i18n[l].how;
+    const L = i18n[l].labels;
+    lbls[0].textContent = L.target; lbls[1].textContent = L.score; lbls[2].textContent = L.time; lbls[3].textContent = L.level;
+    promptEl.innerHTML = i18n[l].prompt(colorName(COLORS[state.targetIdx]));
+    document.getElementById('howTitle').textContent = i18n[l].howTitle;
+    document.getElementById('howBody').innerHTML = i18n[l].howBody;
+    targetEl.textContent = colorName(COLORS[state.targetIdx]);
+  }
+
+  langSel.addEventListener('change', e=>setLang(e.target.value));
+
+  howBtn.addEventListener('click',()=>howDlg.showModal());
+
+  function clearTimers(){state.timers.forEach(clearInterval); state.timers=[]}
+  function rand(min,max){return Math.random()*(max-min)+min}
+
+  function reset(){
+    clearTimers();
+    arena.innerHTML='';
+    state.score=0; state.time=60; state.level=1; updateHUD();
+  }
+
+  function updateHUD(){
+    scoreEl.textContent = state.score;
+    timeEl.textContent = state.time;
+    levelEl.textContent = state.level;
+    targetEl.textContent = colorName(COLORS[state.targetIdx]);
+    promptEl.innerHTML = t().prompt(colorName(COLORS[state.targetIdx]));
+  }
+
+  function chooseTarget(){
+    state.targetIdx = Math.floor(Math.random()*COLORS.length);
+    updateHUD();
+  }
+
+  function spawnBalloon(){
+    const b = document.createElement('div');
+    b.className='balloon';
+    const color = COLORS[Math.floor(Math.random()*COLORS.length)];
+    b.dataset.key = color.key;
+    b.style.background = color.hex;
+    b.style.left = rand(10, arena.clientWidth-110)+ 'px';
+    b.style.top = rand(10, arena.clientHeight-110)+ 'px';
+    b.title = colorName(color);
+    b.textContent = '';
+
+    b.addEventListener('click', ()=>{
+      if(!state.running) return;
+      b.classList.add('pop');
+      if(color.key === COLORS[state.targetIdx].key){
+        state.score += 1;
+        if(state.score % 8 === 0){ state.level += 1; }
+        if(state.score % 5 === 0){ chooseTarget(); }
+      }
+      setTimeout(()=> b.remove(), 220);
+      updateHUD();
+    });
+
+    arena.appendChild(b);
+
+    // auto fade after some time
+    const life = 2500 - state.level*80; // shorter with level up
+    setTimeout(()=>{
+      if(b.isConnected){ b.classList.add('pop'); setTimeout(()=>b.remove(),220); }
+    }, Math.max(900, life));
+  }
+
+  function gameLoop(){
+    const spawnRate = {easy:900, normal:700, hard:520}[diffSel.value];
+    state.timers.push(setInterval(spawnBalloon, spawnRate));
+    state.timers.push(setInterval(()=>{
+      if(!state.running) return;
+      state.time -= 1; timeEl.textContent = state.time;
+      if(state.time<=0){
+        end();
+      }
+    }, 1000));
+  }
+
+  function start(){
+    reset();
+    chooseTarget();
+    state.running = true;
+    startBtn.disabled = true; diffSel.disabled = true; langSel.disabled = true;
+    gameLoop();
+  }
+
+  function end(){
+    state.running = false;
+    clearTimers();
+    startBtn.disabled = false; diffSel.disabled = false; langSel.disabled = false;
+    alert(t().over(state.score));
+  }
+
+  document.addEventListener('visibilitychange', ()=>{ if(document.hidden && state.running){ end(); }});
+  startBtn.addEventListener('click', start);
+
+  // init
+  setLang('vi');
+  state.targetIdx = 0; updateHUD();
+  </script>
+</body>
+</html>
